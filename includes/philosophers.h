@@ -5,84 +5,78 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: ykhomsi <ykhomsi@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/03/17 23:28:38 by ykhomsi           #+#    #+#             */
-/*   Updated: 2025/03/18 03:03:26 by ykhomsi          ###   ########.fr       */
+/*   Created: 2025/03/21 16:47:20 by ykhomsi           #+#    #+#             */
+/*   Updated: 2025/03/22 05:59:54 by ykhomsi          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef PHILOSOPHERS_H
 # define PHILOSOPHERS_H
 
-# include <pthread.h>
 # include <stdio.h>
 # include <stdlib.h>
-# include <string.h>
-# include <sys/time.h>
 # include <unistd.h>
+# include <pthread.h>
+# include <sys/time.h>
+# include <limits.h>
+# include <string.h>
 
-# define LOCK 1
-# define UNLOCK 0
-
-typedef struct s_env	t_env;
+typedef enum e_status
+{
+	EATING,
+	SLEEPING,
+	THINKING,
+	DIED
+}	t_philo_status;
 
 typedef struct s_philo
 {
 	int				pos;
 	int				ate_times;
-	unsigned long	last_ate;
-	char			*pos_str;
-	int				ffork;
-	int				sfork;
+	long long		last_meal;
+	struct s_philo	*left;
+	struct s_philo	*right;
+	struct s_table	*table;
 	pthread_t		thread_id;
-	t_env			*env;
-}					t_philo;
+	t_philo_status	status;
+	pthread_mutex_t	fork_mutex;
+	pthread_mutex_t	meal_mutex;
+	pthread_mutex_t	status_mutex;
+}	t_philo;
 
-typedef struct s_env
+typedef struct s_table
 {
-	int				count;
-	int				time_to_die;
-	int				time_to_eat;
-	int				time_to_sleep;
-	int				eat_count_max;
-	unsigned long	start_time;
-	int				stop_condition;
-	int				max_ate;
-	pthread_mutex_t	*forks;
-	pthread_mutex_t	meal;
-	pthread_mutex_t	writing;
-	t_philo			*philos;
-}					t_env;
+	int				philo_count;
+	long long		start_time;
+	long long		time_to_die;
+	long long		time_to_eat;
+	long long		time_to_sleep;
+	int				must_eat_count;
+	struct s_philo	*first;
+	pthread_mutex_t	table_mutex;
+	pthread_mutex_t	print_mutex;
+	int				is_dead;
+	int				all_ate;
+}	t_table;
 
-int					initialize_environment(t_env *env);
-int					validate_params(t_env *env, int argc, char *argv[]);
-int					setup_environment(t_env *env);
-int					launch_philosophers(t_env *env);
-int					report_error(const char *msg);
-int					is_valid_int(const char *str);
-int					initialize_environment(t_env *env);
-int					start_philosopher_threads(t_env *env);
-int					allocate_memory(t_env *env);
-char				*ft_itoa(int n);
+// Core functions
+int					init_table(char **av, t_table *table);
+void				*philo_routine(void *arg);
+void				cleanup_table(t_table *table);
 
-unsigned long		get_time(void);
-void				new_sleep(unsigned long duration, t_env *env);
-int					ft_strlen(const char *str);
-int					ft_return_error(char *msg);
-int					ft_isint(const char *nptr);
+// Action functions
+void				take_forks(t_philo *philo);
+void				eating(t_philo *philo);
+void				sleeping(t_philo *philo);
+void				thinking(t_philo *philo);
+
+// Utility functions
+int					is_dead(t_philo *philo);
+int					check_death(t_table *table);
+void				print_status(t_philo *philo, char *msg);
+long long			get_time(void);
+void				precise_sleep(long long ms, t_philo *philo);
 int					ft_atoi(const char *str);
-
-void				philo_dead(t_env *env, t_philo *philos);
-void				philo_eat(t_philo *philo);
-void				philo_print(const char *msg, t_philo *philo);
-// Updated declaration for philo_print
-void				print_message(const char *msg, t_philo *philo);
-// Updated declaration for print_message
-
-char				*ft_strdup(const char *s);
-int					ft_intlen(int n);
-
-void				*philosopher_routine(void *arg);
-void				cleanup_environment(t_env *env);
-void				init_philosopher(t_philo *philo, int i, t_env *env);
+void				ft_bzero(void *s, size_t n);
 
 #endif

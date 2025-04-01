@@ -5,69 +5,62 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: ykhomsi <ykhomsi@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/03/17 23:29:25 by ykhomsi           #+#    #+#             */
-/*   Updated: 2025/03/18 03:03:08 by ykhomsi          ###   ########.fr       */
+/*   Created: 2025/03/21 16:47:20 by ykhomsi           #+#    #+#             */
+/*   Updated: 2025/03/21 16:47:22 by ykhomsi          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philosophers.h"
 
-void	run_simulation(t_env *env)
+static void	monitor_philos(t_table *table)
 {
-	if (env->eat_count_max == 0)
-		env->eat_count_max = -1;
-	while (!env->stop_condition)
+	t_philo	*philo;
+	int		i;
+	int		all_ate_enough;
+
+	while (!table->is_dead)
 	{
-		philo_dead(env, env->philos);
-		pthread_mutex_lock(&env->meal);
-		if (env->eat_count_max > 0 && env->max_ate >= env->count)
+		i = 0;
+		all_ate_enough = 1;
+		philo = table->first;
+		while (i < table->philo_count)
 		{
-			env->stop_condition = 1;
+			if (is_dead(philo))
+				return;
+			if (table->must_eat_count != -1)
+			{
+				pthread_mutex_lock(&philo->meal_mutex);
+				if (philo->ate_times < table->must_eat_count)
+					all_ate_enough = 0;
+				pthread_mutex_unlock(&philo->meal_mutex);
+			}
+			philo = philo->right;
+			i++;
 		}
-		pthread_mutex_unlock(&env->meal);
-		usleep(500);
+		if (table->must_eat_count != -1 && all_ate_enough)
+		{
+			pthread_mutex_lock(&table->table_mutex);
+			table->all_ate = 1;
+			pthread_mutex_unlock(&table->table_mutex);
+			return;
+		}
+		usleep(1000);
 	}
 }
 
-void	join_threads(t_env *env)
+int	main(int ac, char **av)
 {
-	int	i;
+	t_table	table;
 
-	i = 0;
-	while (i < env->count)
+	if (ac != 5 && ac != 6)
 	{
-		pthread_join(env->philos[i].thread_id, NULL);
-		i++;
+		printf("Error: wrong number of arguments\n");
+		return (1);
 	}
-}
-
-void	destroy_mutexes(t_env *env)
-{
-	int	i;
-
-	i = 0;
-	while (i < env->count)
-	{
-		pthread_mutex_destroy(&env->forks[i]);
-		i++;
-	}
-	pthread_mutex_destroy(&env->meal);
-	pthread_mutex_destroy(&env->writing);
-}
-
-int	main(int argc, char *argv[])
-{
-	t_env	env;
-
-	if (!validate_params(&env, argc, argv))
+	ft_bzero(&table, sizeof(t_table));
+	if (!init_table(av, &table))
 		return (1);
-	if (!setup_environment(&env))
-		return (1);
-	if (!launch_philosophers(&env))
-		return (1);
-	run_simulation(&env);
-	join_threads(&env);
-	destroy_mutexes(&env);
-	cleanup_environment(&env);
+	monitor_philos(&table);
+	cleanup_table(&table);
 	return (0);
 }
